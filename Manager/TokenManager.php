@@ -2,30 +2,23 @@
 
 namespace Wini\TokenBundle\Manager;
 
-use Doctrine\ORM\EntityRepository;
-use Doctrine\ORM\Mapping\Entity;
+use Doctrine\ORM\EntityManagerInterface;
 use Wini\TokenBundle\Entity\Token;
 use Wini\Manager\AbstractFlushManager;
-use Doctrine\ORM\EntityManager;
 
-class TokenManager extends AbstractFlushManager {
-
+class TokenManager extends AbstractFlushManager
+{
     /**
-     * @var EntityManager
+     * @var EntityManagerInterface
      */
     protected $em;
 
     /**
-     * @var EntityRepository
+     * @param EntityManagerInterface $em
      */
-    protected $repo;
-
-    /**
-     * @param EntityManager $em
-     */
-    public function __construct(EntityManager $em) {
+    public function __construct(EntityManagerInterface $em)
+    {
         $this->em = $em;
-        $this->repo = $this->em->getRepository(Token::class);
     }
     
     /**
@@ -36,7 +29,8 @@ class TokenManager extends AbstractFlushManager {
      * @param DateTime $start Date de début de vie de la token
      * @return Token
      */
-    public function create($data = null, $duration = null, $type = null, $start = null) {
+    public function create($data = null, $duration = null, $type = null, $start = null)
+    {
         $token = new Token();
         $token->setData($data)
               ->setType($type)
@@ -63,37 +57,37 @@ class TokenManager extends AbstractFlushManager {
      * Récupère la token grace a la string de base
      * @param string $token
      * @return null|Token
+     * @throws \Exception
      */
     public function getToken($token)
     {
-        $token = $this->repo->findOneBy([ 'token' => $token ]);
+        /** @var Token $token */
+        $token = $this->em->getRepository(Token::class)->findOneBy([ 'token' => $token ]);
 
-        if ($token && ($data = $token->getData())) {
-            if (is_object($data)) {
-                $ref = new \ReflectionClass($data);
-                $className = (!empty($ref->getNamespaceName()) ? '\\' . $ref->getNamespaceName() . '\\' : '');
-                $className .= $ref->getShortName();
-                $metadataFactory = $this->em->getMetadataFactory();
+        if ($token && ($data = $token->getData()) && is_object($data)) {
+            $ref = new \ReflectionClass($data);
+            $className = (!empty($ref->getNamespaceName()) ? '\\' . $ref->getNamespaceName() . '\\' : '');
+            $className .= $ref->getShortName();
+            $metadataFactory = $this->em->getMetadataFactory();
 
-                if($metadataFactory->isTransient($className)) {
-                    $identifiers = $metadataFactory->getMetadataFor($className)->getIdentifierFieldNames();
-                    $findParameters = [];
+            if ($metadataFactory->isTransient($className)) {
+                $identifiers = $metadataFactory->getMetadataFor($className)->getIdentifierFieldNames();
+                $findParameters = [];
 
-                    foreach($identifiers as $identifier) {
-                        $fn = 'get' . $identifier;
-                        if ($ref->hasMethod($fn)) {
-                            $findParameters[$identifier] = $data->$fn();
-                        }
+                foreach ($identifiers as $identifier) {
+                    $fn = 'get' . $identifier;
+                    if ($ref->hasMethod($fn)) {
+                        $findParameters[$identifier] = $data->$fn();
                     }
-
-                    if (empty($findParameters)) {
-                        throw new \Exception('Cannot find identifier for entity ' . $className);
-                    }
-
-                    $repo = $this->em->getRepository($className);
-                    $data = $repo->findOneBy($findParameters);
-                    $token->setData($data);
                 }
+
+                if (empty($findParameters)) {
+                    throw new \Exception('Cannot find identifier for entity ' . $className);
+                }
+
+                $repo = $this->em->getRepository($className);
+                $data = $repo->findOneBy($findParameters);
+                $token->setData($data);
             }
         }
         return $token;
@@ -103,7 +97,7 @@ class TokenManager extends AbstractFlushManager {
      * Supprime la token
      * @param Token $token
      */
-    public function remove(Token $token) 
+    public function remove(Token $token)
     {
         $this->em->remove($token);
         

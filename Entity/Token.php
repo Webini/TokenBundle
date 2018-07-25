@@ -10,7 +10,7 @@ use Wini\TokenBundle\Exception\InvalidTokenException;
 /**
  * Token
  *
- * @ORM\Table(name="Token", indexes={ @ORM\Index(name="type_idx", columns={"type"}) })
+ * @ORM\Table(indexes={ @ORM\Index(name="type_idx", columns={"type"}) })
  * @ORM\Entity
  */
 class Token implements Serializable
